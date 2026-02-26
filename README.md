@@ -42,7 +42,7 @@ docker run -d \
 
 ## Configuration
 
-This container is based on [LinuxServer.io's Selkies framework](https://github.com/linuxserver/docker-webtop), which provides a powerful web-based desktop environment. Refer to the [webtop documentation](https://github.com/linuxserver/docker-webtop) for advanced Selkies configuration options.
+This container is based on [LinuxServer.io's Selkies base image](https://github.com/linuxserver/docker-baseimage-selkies), which provides a powerful web-based desktop environment. Refer to the [baseimage-selkies documentation](https://github.com/linuxserver/docker-baseimage-selkies) for advanced Selkies configuration options and features.
 
 ### Environment Variables
 
@@ -55,16 +55,32 @@ This container is based on [LinuxServer.io's Selkies framework](https://github.c
 | `OA_KIOSK` | `true` | Enable kiosk mode (disables quit menu) |
 | `oa_internal_browser` | `true` | Use internal browser for Audible authentication |
 | `UMASK` | `022` | Umask for running applications |
-| `LC_ALL` | (unset) | Language/locale setting (see Language Support section) |
+| `LC_ALL` | (unset) | Language/locale setting (e.g., `fr_FR.UTF-8`) |
+| `PIXELFLUX_WAYLAND` | `false` | Enable Wayland mode for zero-copy GPU encoding |
+| `DRINODE` / `DRI_NODE` | (unset) | Path to GPU device for rendering (e.g., `/dev/dri/renderD128`) |
+| `MAX_RESOLUTION` | `16k` | Maximum virtual resolution (e.g., `3840x2160`, `1920x1080`) |
+| `CUSTOM_USER` | `abc` | HTTP Basic auth username |
+| `PASSWORD` | (unset) | HTTP Basic auth password (no auth if unset) |
+| `CUSTOM_PORT` | `3000` | HTTP port |
+| `CUSTOM_HTTPS_PORT` | `3001` | HTTPS port |
+| `TITLE` | `Selkies` | Web page title |
 
-**Example with timezone and permissions:**
+**Advanced Selkies options:** See the [baseimage-selkies environment variables documentation](https://github.com/linuxserver/docker-baseimage-selkies?tab=readme-ov-file#options) for full Selkies configuration (GPU settings, video encoding, UI customization, hardening, etc.).
+
+**Example with authentication and GPU:**
 ```bash
 docker run -d \
   -e PUID=$(id -u) \
   -e PGID=$(id -g) \
   -e TZ=America/New_York \
+  -e CUSTOM_USER=myuser \
+  -e PASSWORD=mypassword \
+  -e PIXELFLUX_WAYLAND=true \
+  -e DRINODE=/dev/dri/renderD128 \
   -p 3000:3000 \
+  -p 3001:3001 \
   -v /path/to/audiobooks:/config/OpenAudible \
+  --device /dev/dri:/dev/dri \
   --security-opt seccomp=unconfined \
   --name openaudible \
   openaudible/openaudible:latest
@@ -72,20 +88,12 @@ docker run -d \
 
 ### Hardware Acceleration (GPU)
 
-The container supports GPU acceleration for Intel and AMD GPUs via Wayland mode. This significantly reduces CPU usage and latency.
+The container supports GPU acceleration for Intel, AMD, and Nvidia GPUs. Enable Wayland mode for optimal performance with zero-copy encoding.
 
-#### Intel/AMD GPUs (Open Source Drivers)
+#### Wayland Mode (Recommended for GPU Acceleration)
 
-Enable Wayland mode and pass the GPU device:
+Set `PIXELFLUX_WAYLAND=true` to enable Wayland mode with GPU-accelerated rendering:
 
-```yaml
-environment:
-  - PIXELFLUX_WAYLAND=true
-devices:
-  - /dev/dri:/dev/dri
-```
-
-Or via docker CLI:
 ```bash
 docker run -d \
   -e PIXELFLUX_WAYLAND=true \
@@ -98,7 +106,46 @@ docker run -d \
   openaudible/openaudible:latest
 ```
 
+#### Intel/AMD GPUs (DRI3)
+
+For open-source drivers, pass the GPU device and set the render node:
+
+```bash
+docker run -d \
+  -e DRINODE=/dev/dri/renderD128 \
+  --device /dev/dri:/dev/dri \
+  -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  --name openaudible \
+  openaudible/openaudible:latest
+```
+
 **Note:** To find your GPU device, run: `ls -la /dev/dri/`
+
+#### Nvidia GPUs
+
+Nvidia support requires the proprietary driver and Nvidia Docker runtime:
+
+```bash
+docker run -d \
+  -e PIXELFLUX_WAYLAND=true \
+  -e DRINODE=/dev/dri/renderD128 \
+  --gpus all \
+  --runtime nvidia \
+  -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  --name openaudible \
+  openaudible/openaudible:latest
+```
+
+**Prerequisites for Nvidia:**
+- Proprietary drivers (580+)
+- Nvidia Docker runtime configured
+- For Wayland headless systems: `nvidia-modprobe --modeset`
+
+See the [baseimage-selkies GPU documentation](https://github.com/linuxserver/docker-baseimage-selkies?tab=readme-ov-file#gpu-acceleration) for full details.
 
 ### Language Support
 
@@ -123,14 +170,15 @@ Set the `LC_ALL` environment variable to run the container in different language
 
 ### Security Considerations
 
-⚠️ **Important:** This container provides access to a GUI with terminal access. Use appropriate security measures:
+⚠️ **Important:** This container provides access to a GUI with terminal and sudo access. Use appropriate security measures:
 
 1. **Never expose to the internet without authentication** - Use a reverse proxy (e.g., [SWAG](https://github.com/linuxserver/docker-swag)) with proper authentication
 2. **Use HTTPS** - The container supports self-signed HTTPS on port 3001
-3. **Authentication** - Add basic auth via environment variables or reverse proxy
+3. **Authentication** - Add basic auth via `CUSTOM_USER` and `PASSWORD` environment variables (for trusted networks only)
 4. **Seccomp** - The `--security-opt seccomp=unconfined` flag is required for OpenAudible to run
+5. **Hardening** - For single-application use, consider hardening options: `DISABLE_SUDO`, `DISABLE_TERMINALS`, `DISABLE_CLOSE_BUTTON`
 
-See the [LinuxServer.io security documentation](https://docs.linuxserver.io/faq#strict-proxy) for more details.
+See the [baseimage-selkies security documentation](https://github.com/linuxserver/docker-baseimage-selkies?tab=readme-ov-file#hardening) for additional hardening options.
 
 ## Deployment
 
@@ -298,12 +346,12 @@ docker run -d -p 3000:3000 \
 ## Important Notes
 
 - **Single user sessions** - Only one user can access the GUI at a time
-- **Authentication** - The container has no built-in password protection; use a reverse proxy for internet exposure
+- **Authentication** - Use `CUSTOM_USER` and `PASSWORD` for basic auth (trusted networks only); use a reverse proxy for internet exposure
 - **Audible logout** - If you logged into Audible, log out via the GUI before deleting the container to unregister the virtual device
 - **Data persistence** - All data in `/config/OpenAudible` persists across container restarts
 - **This is experimental** - Not officially supported by OpenAudible; it's a community project
 
-For additional help with the Selkies containerization, see the [LinuxServer.io docker-webtop documentation](https://github.com/linuxserver/docker-webtop).
+For additional help with Selkies containerization, see the [LinuxServer.io baseimage-selkies documentation](https://github.com/linuxserver/docker-baseimage-selkies).
 
 ## Support
 
