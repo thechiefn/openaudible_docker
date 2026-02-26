@@ -16,8 +16,7 @@ RUN \
   (echo "ERROR: Unsupported architecture $ARCH. OpenAudible requires x86_64 or aarch64" && exit 1)
 
 # OpenAudible configuration
-ENV DEBIAN_FRONTEND=noninteractive \
-    OA_PACKAGING=docker \
+ENV OA_PACKAGING=docker \
     OA_BETA=true \
     OA_KIOSK=true \
     oa_internal_browser=true \
