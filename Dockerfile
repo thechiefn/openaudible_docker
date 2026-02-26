@@ -52,7 +52,6 @@ RUN \
     /app && \
   mkdir -p $APP_DIR && \
   chown -R abc:abc $APP_DIR && \
-  ln -s /config/OpenAudible /root/OpenAudible && \
   echo "/app/start_openaudible.sh" > /defaults/autostart
 
 # ports and volumes
