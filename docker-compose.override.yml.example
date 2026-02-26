@@ -1,0 +1,42 @@
+# docker-compose.override.yml.example
+#
+# This file shows examples of local overrides you can make without modifying
+# the main docker-compose.yml file.
+#
+# To use:
+# 1. Copy this file to docker-compose.override.yml
+# 2. Uncomment and customize the sections you need
+# 3. Run: docker-compose up -d (will automatically use both files)
+#
+# Note: docker-compose.override.yml is git-ignored for your local settings
+
+version: '3.8'
+
+services:
+  openaudible:
+    # Override volume paths for your local environment
+    # volumes:
+    #   - /my/custom/path:/config/OpenAudible
+    #   - /my/existing/audiobooks:/import/existing:ro
+
+    # Override environment variables
+    # environment:
+    #   - PUID=1001
+    #   - PGID=1001
+    #   - TZ=Europe/London
+    #   - PASSWORD=my-secure-password
+    #   - OA_BETA=false
+
+    # Override port mapping
+    # ports:
+    #   - "3001:3000"
+
+    # Add resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 4G
+
+    # Change container name
+    # container_name: my-openaudible

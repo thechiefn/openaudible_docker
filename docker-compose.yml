@@ -37,14 +37,20 @@ services:
       - PUID=1000
       - PGID=1000
 
+      # Used to make internal web browser more compatible:
+      - DWEBKIT_DISABLE_DMABUF_RENDERER=1
+      - DWEBKIT_DISABLE_COMPOSITING_MODE=1
+      - DWEBKIT_FORCE_SOFTWARE_RENDERING=1
+      - DGDK_GL=disable
+
       # Optional: Timezone
       - TZ=UTC
-
+      
       # Optional: Password for web interface (leave empty for no password)
       # - PASSWORD=
 
       # Optional: Use beta versions (true) or stable releases (false)
-      - OA_BETA=true
+      - OA_BETA=false
 
       # Pre-configured settings (generally don't need changes)
       - KASM_AUDIO_ENABLED=1

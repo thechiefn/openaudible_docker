@@ -63,15 +63,18 @@ services:
       - PUID=1026
       - PGID=100
 
-      # OPTIONAL: Password for web interface
-      # Set a password for VNC authentication
-      # Leave commented out (or empty) for no password
-      # - PASSWORD=your-secure-password
+      # Used to make the OpenAudible internal web browser more compatible:
+      - DWEBKIT_DISABLE_DMABUF_RENDERER=1
+      - DWEBKIT_DISABLE_COMPOSITING_MODE=1
+      - DWEBKIT_FORCE_SOFTWARE_RENDERING=1
+      - DGDK_GL=disable
 
-      # OPTIONAL: Use beta versions of OpenAudible
-      # true = latest beta/development builds
-      # false = stable releases only
-      - OA_BETA=true
+
+      # Optional: Password for web interface (leave empty for no password)
+      # - PASSWORD=
+
+      # Optional: Use beta versions (true) or stable releases (false)
+      - OA_BETA=false
 
       # OPTIONAL: Timezone
       # Set to your local timezone for correct timestamps
