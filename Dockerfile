@@ -52,7 +52,9 @@ RUN \
     /app && \
   mkdir -p $APP_DIR && \
   chown -R abc:abc $APP_DIR && \
-  echo "/app/start_openaudible.sh" > /defaults/autostart
+  echo "#!/bin/bash" > /defaults/autostart && \
+  echo "/app/start_openaudible.sh" >> /defaults/autostart && \
+  chmod +x /defaults/autostart
 
 # ports and volumes
 EXPOSE 3000
