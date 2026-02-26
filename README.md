@@ -6,36 +6,135 @@ This is an experimental alternative to the supported and recommended desktop bin
 
 This project is hosted on [github](https://github.com/openaudible/openaudible_docker) and [dockerhub](https://hub.docker.com/r/openaudible/openaudible)
 
-This project is based on the excellent [https://www.kasmweb.com/kasmvnc](https://www.kasmweb.com/kasmvnc) remote desktop container.
+This project uses the [LinuxServer.io Selkies base image](https://github.com/linuxserver/docker-baseimage-selkies) for modern web-based desktop containerization.
 
 ## Description
 
-OpenAudible runs on Linux, Mac, and Windows. This Docker container runs the latest linux version
-in a container running Ubuntu that is via web browser. 
+OpenAudible runs on Linux, Mac, and Windows. This Docker container runs the latest Linux version with a web-accessible GUI via browser, making it easy to run OpenAudible from a container, on the cloud, or from any Docker-capable system (NAS, VPS, home lab, etc.).
 
-This allows you to run OpenAudible from a container, on the cloud, or from any Docker capable system (NAS system?).
+**Key features:**
+- **Browser-based access** from any device (desktop, mobile, tablet)
+- **Data persistence** - all books, metadata, and settings stored in a persistent volume
+- **GPU acceleration support** - hardware acceleration for Intel/AMD GPUs (Wayland mode)
+- **No passwords by default** - can be added via reverse proxy or environment variables
+- **Single user** - designed for personal use; one user can view sessions at a time
 
-No passwords are needed to access the web page, but a password can be added by modifying the "run.sh" file. 
-
-For personal use. Only one user can
-view web sessions at one time-so this can't be used to share the application with multiple viewers at the same time.
-
-
-The container stores data in `/config/OpenAudible` inside the container. Map this to a volume on your host system to access downloaded and converted audiobooks. See the NAS Deployment section below for platform-specific instructions.
+The container stores all OpenAudible data in `/config/OpenAudible`. Map this to a volume on your host system to access downloaded and converted audiobooks. See the Configuration section below for platform-specific instructions.
 
 ## Quick Start
 
-```
+```bash
 docker run -d --rm -it -p 3000:3000 --security-opt seccomp=unconfined --name openaudible openaudible/openaudible:latest
 ```
 
-Then open your web browser to http://localhost:3000
+Then open your web browser to **http://localhost:3000**
 
-You'll probably want to access the volume where OpenAudible saves books.
+You'll probably want to map a volume for persistent audiobook storage:
 
-## NAS Deployment
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  --name openaudible \
+  openaudible/openaudible:latest
+```
 
-### Docker Compose (Any Platform)
+## Configuration
+
+This container is based on [LinuxServer.io's Selkies framework](https://github.com/linuxserver/docker-webtop), which provides a powerful web-based desktop environment. Refer to the [webtop documentation](https://github.com/linuxserver/docker-webtop) for advanced Selkies configuration options.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PUID` | `1000` | User ID for the container user (abc) |
+| `PGID` | `1000` | Group ID for the container user (abc) |
+| `TZ` | `Etc/UTC` | Timezone (e.g., `America/New_York`, `Europe/London`) |
+| `OA_BETA` | `true` | Download beta (true) or stable (false) OpenAudible versions |
+| `OA_KIOSK` | `true` | Enable kiosk mode (disables quit menu) |
+| `oa_internal_browser` | `true` | Use internal browser for Audible authentication |
+| `UMASK` | `022` | Umask for running applications |
+| `LC_ALL` | (unset) | Language/locale setting (see Language Support section) |
+
+**Example with timezone and permissions:**
+```bash
+docker run -d \
+  -e PUID=$(id -u) \
+  -e PGID=$(id -g) \
+  -e TZ=America/New_York \
+  -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  --name openaudible \
+  openaudible/openaudible:latest
+```
+
+### Hardware Acceleration (GPU)
+
+The container supports GPU acceleration for Intel and AMD GPUs via Wayland mode. This significantly reduces CPU usage and latency.
+
+#### Intel/AMD GPUs (Open Source Drivers)
+
+Enable Wayland mode and pass the GPU device:
+
+```yaml
+environment:
+  - PIXELFLUX_WAYLAND=true
+devices:
+  - /dev/dri:/dev/dri
+```
+
+Or via docker CLI:
+```bash
+docker run -d \
+  -e PIXELFLUX_WAYLAND=true \
+  -e DRINODE=/dev/dri/renderD128 \
+  --device /dev/dri:/dev/dri \
+  -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  --name openaudible \
+  openaudible/openaudible:latest
+```
+
+**Note:** To find your GPU device, run: `ls -la /dev/dri/`
+
+### Language Support
+
+Set the `LC_ALL` environment variable to run the container in different languages:
+
+```bash
+# Chinese
+-e LC_ALL=zh_CN.UTF-8
+
+# Japanese
+-e LC_ALL=ja_JP.UTF-8
+
+# Spanish
+-e LC_ALL=es_MX.UTF-8
+
+# German
+-e LC_ALL=de_DE.UTF-8
+
+# French
+-e LC_ALL=fr_FR.UTF-8
+```
+
+### Security Considerations
+
+⚠️ **Important:** This container provides access to a GUI with terminal access. Use appropriate security measures:
+
+1. **Never expose to the internet without authentication** - Use a reverse proxy (e.g., [SWAG](https://github.com/linuxserver/docker-swag)) with proper authentication
+2. **Use HTTPS** - The container supports self-signed HTTPS on port 3001
+3. **Authentication** - Add basic auth via environment variables or reverse proxy
+4. **Seccomp** - The `--security-opt seccomp=unconfined` flag is required for OpenAudible to run
+
+See the [LinuxServer.io security documentation](https://docs.linuxserver.io/faq#strict-proxy) for more details.
+
+## Deployment
+
+### Docker Compose (Recommended)
 
 The easiest deployment method is using docker-compose:
 
@@ -53,13 +152,28 @@ wget https://raw.githubusercontent.com/openaudible/openaudible_docker/main/docke
 
 For detailed Synology instructions, see [SYNOLOGY.md](SYNOLOGY.md).
 
-### Quick NAS Example (Command Line)
+### Command Line Deployment
 
 ```bash
 docker run -d \
   --name=openaudible \
   -p 3000:3000 \
-  -v /your/nas/path:/config/OpenAudible \
+  -p 3001:3001 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  -e TZ=Etc/UTC \
+  --security-opt seccomp=unconfined \
+  --restart unless-stopped \
+  openaudible/openaudible:latest
+```
+
+**Synology example:**
+```bash
+docker run -d \
+  --name=openaudible \
+  -p 3000:3000 \
+  -v /volume1/Audiobooks:/config/OpenAudible \
   -e PUID=1026 \
   -e PGID=100 \
   --security-opt seccomp=unconfined \
@@ -67,128 +181,138 @@ docker run -d \
   openaudible/openaudible:latest
 ```
 
-Replace `/your/nas/path` with your actual NAS storage path.
+### Data Persistence
 
-**Synology tip:** Use `/volume1/Audiobooks` for easy network share access.
+The container stores all OpenAudible data (books, metadata, settings) in `/config/OpenAudible`. You **must** map a persistent volume for data to survive container restarts.
 
-More NAS platforms coming soon (QNAP, Unraid, TrueNAS).
+**Finding your PUID/PGID:**
+```bash
+id your_user
+# Example output: uid=1000(user) gid=1000(user)
+```
 
-## Volume Configuration and Permissions
+**Ensuring file permissions:**
+```bash
+# Pre-create the data directory with correct ownership
+mkdir -p /path/to/audiobooks
+chown 1000:1000 /path/to/audiobooks  # Use your actual PUID:PGID
 
-The container stores all OpenAudible data (books, metadata, settings) in `/config/OpenAudible` inside the container. You **must** map this to a volume on your host for data persistence.
+# Or use your user's ID
+chown $(id -u):$(id -g) /path/to/audiobooks
+```
 
-### Important: File Permissions
+**If you get permission errors after startup:**
+```bash
+ls -ld /path/to/audiobooks
+# Check ownership, fix if needed:
+sudo chown -R $(id -u):$(id -g) /path/to/audiobooks
+```
 
-The container runs as a non-root user (named `abc`) with configurable UID/GID. To avoid permission issues:
-
-1. **Set PUID and PGID** to match your host user:
-   ```bash
-   docker run -d \
-     -e PUID=$(id -u) \
-     -e PGID=$(id -g) \
-     -v /path/to/data:/config/OpenAudible \
-     ...
-   ```
-
-2. **Pre-create the data directory** with correct ownership:
-   ```bash
-   mkdir -p /path/to/data
-   chown $(id -u):$(id -g) /path/to/data
-   ```
-
-3. **If you get permission errors**, check directory ownership:
-   ```bash
-   ls -ld /path/to/data
-   # Should show your user:group
-
-   # Fix if needed:
-   sudo chown -R $(id -u):$(id -g) /path/to/data
-   ```
-
-### Configuring the Data Directory with run.sh
-
-The `run.sh` script now automatically:
-- Creates the data directory if it doesn't exist
-- Sets correct ownership based on your current user
-- Validates permissions before starting the container
-
-To customize the location, edit `OA_DIR` in `run.sh` or set it as an environment variable:
+## Building from Source
 
 ```bash
-# Option 1: Edit run.sh directly (line ~14)
-OA_DIR=${OA_DIR:-/your/custom/path}
-
-# Option 2: Set environment variable before running
-export OA_DIR=/volume1/docker/openaudible
-./run.sh
-```
-
-### NAS-Specific Considerations
-
-On Synology and other NAS systems:
-- Use PUID/PGID matching your NAS user (check with `id` command via SSH)
-- Synology typically uses PUID=1026, PGID=100 for the first user
-- Ensure the volume path is accessible to that user
-- See [SYNOLOGY.md](SYNOLOGY.md) for detailed NAS deployment instructions
-
-## Building and running from source
-```
 git clone https://github.com/openaudible/openaudible_docker.git 
 cd openaudible_docker
 ./run.sh
 ```
 
-The [run.sh](run.sh) file builds and runs the docker image. You may want to modify it to expose the OPENAUDIBLE volume. 
-Note: The latest version requires the docker run to include --security-opt seccomp=unconfined in the arguments. Without that, you would need to start OpenAudible manually, which can be done via:
-```
-./bash.sh
-su abc
-OpenAudible
+The [run.sh](run.sh) script automatically:
+- Builds the Docker image
+- Creates and starts the container with proper volume mounting
+- Maps the audiobooks directory to `$HOME/OpenAudibleDocker`
+- Exposes port 3000
+
+Edit `run.sh` to customize the data directory, port mapping, or other settings.
+
+**Manual startup** (if needed):
+```bash
+./bash.sh           # Exec into running container
+OpenAudible         # Start the application manually
 ```
 
-If successful, the application will be up and running on port 3000 and
-accessible via http://localhost:3000 in a browser.
-
-The -rm flag removes the container when it quits. Any downloaded or converted books will be in the docker Volume.
 ## Upgrading OpenAudible
 
-To upgrade OpenAudible to the latest version, stop and remove the container, then restart it. The latest version will be automatically downloaded and installed on startup.
-
-**Your books, settings, and data are safe** - they're stored in the volume mount and will persist across container restarts.
+To upgrade to the latest OpenAudible version, stop and remove the container, then restart it:
 
 ```bash
 docker stop openaudible
 docker rm openaudible
-docker run -d --rm -it -p 3000:3000 --security-opt seccomp=unconfined --name openaudible openaudible/openaudible:latest
+docker run -d -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  --restart unless-stopped \
+  openaudible/openaudible:latest
 ```
 
-Replace the `docker run` command with your actual command if you're using custom volumes or settings.
+**Your books, settings, and data are safe** - they're stored in the volume mount and persist across container restarts. The latest version will be automatically downloaded and installed on the first run.
 
-### Beta vs Production Versions
+### Beta vs Stable Versions
 
-By default, the container downloads the latest **beta** version of OpenAudible. To use the production (stable) version instead:
+By default, the container downloads the latest **beta** version of OpenAudible. To use the **stable** release version instead:
 
 ```bash
-docker run -d --rm -it -p 3000:3000 \
+docker run -d -p 3000:3000 \
   -e OA_BETA=false \
+  -v /path/to/audiobooks:/config/OpenAudible \
   --security-opt seccomp=unconfined \
   --name openaudible \
   openaudible/openaudible:latest
 ```
 
+## Troubleshooting
 
-## Known limitations:
-* Another user logging on to the web page disconnects anyone else already connected
-* No password protection is offered or https proxy-but can be added. 
-* But it does allow a user to try the software in a containerized, accessible-from-anywhere way.
+### Application won't start
 
-## Notes
-* This is experimental and unsupported. We hope some people find it useful. 
-* If you find any issues, please report them on [github.com/openaudible/openaudible_docker/issues](https://github.com/openaudible/openaudible_docker/issues).
-* Before deleting the container and volume, if you logged into Audible, you should Log out using the Control Menu, which will delete your virtual device.
-* Would appreciate feedback or pull requests. 
-* Docker is great for testing something, but we still recommend the desktop app for most users.
+1. Ensure `--security-opt seccomp=unconfined` is present in your docker run command
+2. Check container logs: `docker logs openaudible`
+3. Verify the volume is mounted: `docker exec openaudible ls -la /config/OpenAudible`
+
+### Permission errors
+
+Ensure PUID and PGID match your user:
+```bash
+docker exec openaudible id abc
+id your_user
+# Both should show the same uid/gid
+```
+
+### Can't access web interface
+
+- HTTP: http://localhost:3000
+- HTTPS: https://localhost:3001 (self-signed certificate)
+- Check port mapping: `docker port openaudible`
+
+### OpenAudible fails to initialize
+
+Remove the container and volume, then recreate:
+```bash
+docker stop openaudible
+docker rm openaudible
+# Keep your audiobooks volume - data persists!
+docker run -d -p 3000:3000 \
+  -v /path/to/audiobooks:/config/OpenAudible \
+  --security-opt seccomp=unconfined \
+  openaudible/openaudible:latest
+```
+
+## Important Notes
+
+- **Single user sessions** - Only one user can access the GUI at a time
+- **Authentication** - The container has no built-in password protection; use a reverse proxy for internet exposure
+- **Audible logout** - If you logged into Audible, log out via the GUI before deleting the container to unregister the virtual device
+- **Data persistence** - All data in `/config/OpenAudible` persists across container restarts
+- **This is experimental** - Not officially supported by OpenAudible; it's a community project
+
+For additional help with the Selkies containerization, see the [LinuxServer.io docker-webtop documentation](https://github.com/linuxserver/docker-webtop).
+
+## Support
+
+- **Issues/Bugs:** Report on [GitHub](https://github.com/openaudible/openaudible_docker/issues)
+- **OpenAudible Help:** [openaudible.org](https://openaudible.org)
+- **LinuxServer.io:** [linuxserver.io](https://linuxserver.io)
 
 ## License
-The OpenAudible desktop application is free to try shareware.
+
+The OpenAudible application is free to try shareware. See [openaudible.org](https://openaudible.org) for license details.
+
 
