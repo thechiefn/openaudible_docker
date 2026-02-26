@@ -26,6 +26,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN \
   echo "**** install packages ****" && \
   apt-get update && \
+  apt-get upgrade -y && \
   apt-get install -y \
     ca-certificates \
     libgtk-3-bin \
